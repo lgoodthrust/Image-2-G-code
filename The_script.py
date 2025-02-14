@@ -2,9 +2,7 @@ import os
 from PIL import Image, ImageEnhance, ImageDraw
 
 # Prompt the user to input the directory where the image is located
-image_dir = r"E:\AAA\py scripts\001.jpg"
-# Remove leading and trailing double quotes from the input directory path, if present
-image_path = image_dir.strip('"')
+image_dir = r"D:\python stuff\Image_Plotter\tester.jpg"
 
 # Define plotter dimensions (in millimeters)
 plotter_width = 110
@@ -21,10 +19,11 @@ pen_d_speed = 4500  # Adjust as needed
 pen_v_speed = 12000  # Adjust as needed
 pen_t_speed = 8000  # Adjust as needed
 
-contrast_factor = 2.0 # You can adjust this value to change the contrast
-
+# You can adjust this value to change the contrast
+contrast_factor = 2.0
 
 # Check if the provided file exists
+image_path = image_dir.strip('"')
 if not os.path.isfile(image_path):
     print("Invalid file path. Please provide a valid file path.")
     exit()
@@ -34,7 +33,7 @@ if not image_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
     print("Please provide a valid image file.")
     exit()
 
-def visualize(gcode_file_path, output_image_path):
+def visualize(gcode_file_path:str, output_image_path:str):
     # Check if the G-code file exists
     if not os.path.isfile(gcode_file_path):
         print("G-code file not found. Please provide a valid file path.")
@@ -114,7 +113,7 @@ def visualize(gcode_file_path, output_image_path):
 
     print(f"G-code visualization saved as: {output_image_path}")
 
-def compress_gcode(input_file):
+def compress_gcode(input_file:str):
     with open(input_file, 'r') as infile, open(os.path.splitext(input_file)[0] + "_smol.gcode", 'w') as outfile:
         lines = infile.readlines()
         
@@ -157,98 +156,106 @@ def compress_gcode(input_file):
         # Write the compressed lines to the output file
         outfile.write('\n'.join(lines_to_keep) + '\n')
 
-# Open the image and compress/resize
-image = Image.open(image_path)
+def convert_n_stuff(image_path:str):
+    # Open the image and compress/resize
+    image = Image.open(image_path)
 
-# Contrast control
-enhancer = ImageEnhance.Contrast(image)
-image = enhancer.enhance(contrast_factor)
-compressed_image = image.convert("RGB")
-compressed_image.thumbnail((1000, 1000), Image.BILINEAR)
+    # Contrast control
+    enhancer = ImageEnhance.Contrast(image)
+    image = enhancer.enhance(contrast_factor)
+    compressed_image = image.convert("RGB")
+    compressed_image.thumbnail((1000, 1000), Image.BILINEAR)
 
-# Get the filename without the extension
-file_name = os.path.splitext(os.path.basename(image_path))[0]
+    # Get the filename without the extension
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
 
-# Define G-code file
-gcode_file_path = f"{file_name}.gcode"
-gcode_file = open(gcode_file_path, "w")
+    # Define G-code file
+    gcode_file_path = f"{file_name}.gcode"
+    gcode_file = open(gcode_file_path, "w")
 
-# G-code header
-gcode_file.write(";FLAVOR:Marlin\n")
-gcode_file.write(";TIME:120\n")
-gcode_file.write(";Filament used: 0m\n")
-gcode_file.write(";Layer height: 0.0001\n")
-gcode_file.write(";TARGET_MACHINE.NAME:Creality Ender-3 Pro\n")
-gcode_file.write("M82 ;absolute extrusion mode\n")
-gcode_file.write("G28 ; Home all axes\n")
-gcode_file.write("G1 Z5.0 F3000 ; Move Z Axis up a bit during heating to not damage bed\n")
-gcode_file.write("G1 Z2.0 F3000 ; Move Z Axis up little to prevent scratching of Heat Bed\n")
-gcode_file.write("G1 X0.1 Y20 Z0.3 F5000.0 ; Move to start position\n")
+    # G-code header
+    gcode_file.write(";FLAVOR:Marlin\n")
+    gcode_file.write(";TIME:120\n")
+    gcode_file.write(";Filament used: 0m\n")
+    gcode_file.write(";Layer height: 0.0001\n")
+    gcode_file.write(";TARGET_MACHINE.NAME:Creality Ender-3 Pro\n")
+    gcode_file.write("M82 ;absolute extrusion mode\n")
+    gcode_file.write("G28 ; Home all axes\n")
+    gcode_file.write("G1 Z5.0 F3000 ; Move Z Axis up a bit during heating to not damage bed\n")
+    gcode_file.write("G1 Z2.0 F3000 ; Move Z Axis up little to prevent scratching of Heat Bed\n")
+    gcode_file.write("G1 X0.1 Y20 Z0.3 F5000.0 ; Move to start position\n")
 
-# Convert image to grayscale for gcode
-image_gray = compressed_image.convert("L")
+    # Convert image to grayscale for gcode
+    image_gray = compressed_image.convert("L")
 
-# Get pixel data
-pixels = list(image_gray.getdata())
+    # Get pixel data
+    pixels = list(image_gray.getdata())
 
-# Save a copy of the grayscale image
-gray_image_path = f"{file_name}_gray.png"
-image_gray.save(gray_image_path)
-print(f"Grayscale image saved as: {gray_image_path}")
+    # Save a copy of the grayscale image
+    gray_image_path = f"{file_name}_gray.png"
+    image_gray.save(gray_image_path)
+    print(f"Grayscale image saved as: {gray_image_path}")
 
-# Save a copy of the black and white image
-bw_image = image_gray.point(lambda x: 0 if x < threshold else 255, 'L')
-bw_image_path = f"{file_name}_bw.png"
-bw_image.save(bw_image_path)
-print(f"Black and white image saved as: {bw_image_path}")
+    # Save a copy of the black and white image
+    bw_image = image_gray.point(lambda x: 0 if x < threshold else 255, 'L')
+    bw_image_path = f"{file_name}_bw.png"
+    bw_image.save(bw_image_path)
+    print(f"Black and white image saved as: {bw_image_path}")
 
-# Calculate scaling factors
-scale_x = plotter_width / image_gray.width
-scale_y = plotter_height / image_gray.height
+    # Calculate scaling factors
+    scale_x = plotter_width / image_gray.width
+    scale_y = plotter_height / image_gray.height
 
-# Define a variable to track the pen state
-pen_down = False
+    # Define a variable to track the pen state
+    pen_down = False
 
-# Move to the starting position
-gcode_file.write(f"G1 X10 Y10 F{pen_d_speed}\n")
+    # Move to the starting position
+    gcode_file.write(f"G1 X10 Y10 F{pen_d_speed}\n")
 
-# Write G-code for each pixel in the image
-for y in range(0, image_gray.height, 2):  # Skipping every other row
-    if y % 2 == 0:  # Start from left if the row number is even
-        start_x = 0
-        end_x = image_gray.width
-        step = 1
-    else:  # Start from right if the row number is odd
-        start_x = image_gray.width - 1
-        end_x = -1
-        step = -1
+    # Write G-code for each pixel in the image
+    for y in range(0, image_gray.height, 2):  # Skipping every other row
+        if y % 2 == 0:  # Start from left if the row number is even
+            start_x = 0
+            end_x = image_gray.width
+            step = 1
+        else:  # Start from right if the row number is odd
+            start_x = image_gray.width - 1
+            end_x = -1
+            step = -1
 
-    for x in range(start_x, end_x, step):
-        pixel_value = pixels[y * image_gray.width + x]
-        if pixel_value > threshold:  # If it's a black pixel
-            if pen_down:
-                # lower the pen (start drawing)
-                gcode_file.write(f"G1 Z{pen_down_position} E0 F{pen_v_speed}\n")
-                pen_down = False
-        else:  # If it's a white pixel
-            if not pen_down:
-                # raise (stop drawing)
-                gcode_file.write(f"G1 Z{pen_up_position} E10 F{pen_v_speed}\n")
-                pen_down = True
+        for x in range(start_x, end_x, step):
+            pixel_value = pixels[y * image_gray.width + x]
+            if pixel_value > threshold:  # If it's a black pixel
+                if pen_down:
+                    # lower the pen (start drawing)
+                    gcode_file.write(f"G1 Z{pen_down_position} E0 F{pen_v_speed}\n")
+                    pen_down = False
+            else:  # If it's a white pixel
+                if not pen_down:
+                    # raise (stop drawing)
+                    gcode_file.write(f"G1 Z{pen_up_position} E10 F{pen_v_speed}\n")
+                    pen_down = True
 
-        # Move to the next position with outline width factor applied
-        rounded_x = round(x * scale_x, 1)
-        rounded_y = round(y * scale_y, 1)
-        gcode_file.write(f"G1 X{rounded_x} Y{rounded_y} E10 F{pen_d_speed}\n")
+            # Move to the next position with outline width factor applied
+            rounded_x = round(x * scale_x, 1)
+            rounded_y = round(y * scale_y, 1)
+            gcode_file.write(f"G1 X{rounded_x} Y{rounded_y} E10 F{pen_d_speed}\n")
 
-# Raise the pen if it's still down
-if pen_down:
-    gcode_file.write(f"G1 Z{pen_up_position} E0 F{pen_d_speed}\n")
+    # Raise the pen if it's still down
+    if pen_down:
+        gcode_file.write(f"G1 Z{pen_up_position} E0 F{pen_d_speed}\n")
 
-# G-code footer
-gcode_file.write("; End of G-code\n")
+    # G-code footer
+    gcode_file.write("; End of G-code\n")
 
-# Close G-code file
-gcode_file.close()
+    # Close G-code file
+    gcode_file.close()
 
-print(f"G-code saved as: {gcode_file_path}")
+    print(f"G-code saved as: {gcode_file_path}")
+
+    return gcode_file_path
+
+if __name__ == "__main__":
+    gcode_file = convert_n_stuff(image_dir)
+    compressed_gcode_file = compress_gcode(gcode_file)
+    visualize(compressed_gcode_file)
