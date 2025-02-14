@@ -22,6 +22,31 @@ pen_t_speed = 8000  # Adjust as needed
 # You can adjust this value to change the contrast
 contrast_factor = 2.0
 
+# Read hyper-parameters
+def gcode_l4(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            # Read the first four lines
+            for i in range(4):
+                line = file.readline().strip()
+                
+            # Expected format is ";data:250x250"
+            if line.startswith(";data:"):
+                # Split to extract coordinates
+                data_part = line.split(":")[1]
+                x_str, y_str = data_part.split("x")
+                
+                # Convert to integers (or floats if needed)
+                x, y = int(x_str), int(y_str)
+                return (x, y)
+            else:
+                raise ValueError("Line 4 does not contain the expected format ';data:<x>x<y>'")
+    
+    except FileNotFoundError:
+        print(f"File '{file_path}' not found.")
+    except ValueError as e:
+        print(f"ValueError: {e}")
+
 # Check if the provided file exists
 image_path = image_dir.strip('"')
 if not os.path.isfile(image_path):
@@ -33,35 +58,7 @@ if not image_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
     print("Please provide a valid image file.")
     exit()
 
-def visualize(gcode_file_path:str, output_image_path:str):
-    # Check if the G-code file exists
-    if not os.path.isfile(gcode_file_path):
-        print("G-code file not found. Please provide a valid file path.")
-        exit()
-
-    def gcode_l4(file_path):
-        try:
-            with open(file_path, 'r') as file:
-                # Read the first four lines
-                for i in range(4):
-                    line = file.readline().strip()
-                    
-                # Expected format is ";data:250x250"
-                if line.startswith(";data:"):
-                    # Split to extract coordinates
-                    data_part = line.split(":")[1]
-                    x_str, y_str = data_part.split("x")
-                    
-                    # Convert to integers (or floats if needed)
-                    x, y = int(x_str), int(y_str)
-                    return (x, y)
-                else:
-                    raise ValueError("Line 4 does not contain the expected format ';data:<x>x<y>'")
-        
-        except FileNotFoundError:
-            print(f"File '{file_path}' not found.")
-        except ValueError as e:
-            print(f"ValueError: {e}")
+def visualize(gcode_file_path):
 
     background_color = (255, 255, 255)  # White background
 
@@ -106,6 +103,11 @@ def visualize(gcode_file_path:str, output_image_path:str):
 
                 # Update current position
                 current_x, current_y = scaled_x, scaled_y
+    
+    file_dir = os.path.splitext(os.path.basename(image_path))[0]
+
+    # Define G-code file
+    output_image_path = f"{file_dir}.gcode"
 
     # Save and display the image
     image.save(output_image_path)
@@ -113,7 +115,7 @@ def visualize(gcode_file_path:str, output_image_path:str):
 
     print(f"G-code visualization saved as: {output_image_path}")
 
-def compress_gcode(input_file:str):
+def compress_gcode(input_file):
     with open(input_file, 'r') as infile, open(os.path.splitext(input_file)[0] + "_smol.gcode", 'w') as outfile:
         lines = infile.readlines()
         
@@ -156,7 +158,7 @@ def compress_gcode(input_file:str):
         # Write the compressed lines to the output file
         outfile.write('\n'.join(lines_to_keep) + '\n')
 
-def convert_n_stuff(image_path:str):
+def convert_n_stuff(image_path):
     # Open the image and compress/resize
     image = Image.open(image_path)
 
