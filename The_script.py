@@ -2,13 +2,13 @@ import os
 from PIL import Image, ImageEnhance, ImageDraw
 
 # Image and plotter settings
-image_dir = r"D:\python stuff\Image_Plotter\tester.jpg"
-plotter_width, plotter_height = 100, 100
+image_dir = r"D:\python stuff\Image_Plotter\gradient.png"
+plotter_width, plotter_height = 1000, 1000
 pen_down_position, pen_up_position = 0, 2.5
-threshold = 200  # max of 255
+threshold = 128  # max of 255
 pen_d_speed, pen_v_speed, pen_t_speed = 4500, 12000, 8000
-contrast_factor = 2.0
-invert_drawing = False  # Toggle inversion mode
+contrast_factor = 1.0
+invert_drawing = True   # Toggle inversion mode
 
 # Ensure script has write permissions in the working directory
 path = os.path.dirname(image_dir)  # Get directory instead of stripping file extension
@@ -18,29 +18,56 @@ if os.path.isdir(path):
 else:
     print(f"Warning: Directory {path} does not exist.")
 
-def convert_n_stuff(image_path):
-    """ Converts an image into G-code for plotting. """
+def to_gray(image_path):
+    """ Converts an image into a grayscale. """
     print(f"Opening image: {image_path}")
-    image = Image.open(image_path).convert("L")  # Convert directly to grayscale
-    enhancer = ImageEnhance.Contrast(image)
-    image_gray = enhancer.enhance(contrast_factor)
-
-    # Resize while keeping aspect ratio
-    image_gray.thumbnail((plotter_width, plotter_height), Image.Resampling.BILINEAR)
-    compressed_width, compressed_height = image_gray.size
-    scale_factor = min(plotter_width / compressed_width, plotter_height / compressed_height)
+    image = Image.open(image_path)
+    image = image.convert("RGB", None, None, None, 128) # simplify colors
+    image = image.convert("L") # grayscale
+    enhancer = ImageEnhance.Contrast(image) # contrast thiggy
 
     # Save processed images
     file_name = os.path.splitext(os.path.basename(image_path))[0]
     gray_image_path = os.path.join(os.getcwd(), f"{file_name}_gray.png")
-    bw_image_path = os.path.join(os.getcwd(), f"{file_name}_bw.png")
-
     print(f"Saving grayscale image at: {gray_image_path}")
-    image_gray.save(gray_image_path)
+    enhancer.enhance(contrast_factor).save(gray_image_path)
+    return gray_image_path
 
+def to_bl(image_path):
+    """ Converts a grayscale image into B&W. """
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    image_gray = Image.open(image_path)
     bw_image = image_gray.point(lambda x: 0 if x < threshold else 255, 'L')
+    bw_image_path = os.path.join(os.getcwd(), f"{file_name}_bw.png")
     print(f"Saving black-and-white image at: {bw_image_path}")
     bw_image.save(bw_image_path)
+    return bw_image_path
+
+def to_db(image_path):
+    """Generates a boundary-detected image where pixels are black only if there is a black-to-white transition horizontally."""
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    bw_image = Image.open(image_path)
+    width, height = bw_image.size
+    bd_image = Image.new("L", (width, height), 255)  # Start with a white image
+    pixels_bw = bw_image.load()
+    pixels_bd = bd_image.load()
+
+    for y in range(height):
+        for x in range(width - 1):  # Horizontal scan
+            if pixels_bw[x, y] == 0 and pixels_bw[x + 1, y] == 255:  # Black to white transition
+                pixels_bd[x, y] = 0  # Mark transition pixel as black
+    
+    bd_image_path = os.path.join(os.getcwd(), f"{file_name}_bd.png")
+    bd_image.save(bd_image_path)
+    return bd_image_path
+
+def to_gcode(image_path):
+    # Resize while keeping aspect ratio
+    image = Image.open(image_path)
+    image.thumbnail((plotter_width, plotter_height), Image.Resampling.BILINEAR, 2.0)
+    compressed_width, compressed_height = image.size
+    scale_factor = min(plotter_width / compressed_width, plotter_height / compressed_height)
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
 
     # Create G-code file
     gcode_file_path = os.path.join(os.getcwd(), f"{file_name}.gcode")
@@ -52,13 +79,13 @@ def convert_n_stuff(image_path):
             print("File opened successfully, writing G-code...")
             gcode_file.write(";FLAVOR:Marlin\nG28 ; Home all axes\nG1 Z5.0 F3000\nG1 Z2.0 F3000\nG1 X0.1 Y20 Z0.3 F5000.0\n")
             
-            pixels = list(image_gray.getdata())
+            pixels = list(image.getdata())
             pen_down = False
 
-            for y in range(image_gray.height):
-                x_range = range(image_gray.width) if y % 2 == 0 else range(image_gray.width - 1, -1, -1)
+            for y in range(image.height):
+                x_range = range(image.width) if y % 2 == 0 else range(image.width - 1, -1, -1)
                 for x in x_range:
-                    pixel_value = pixels[y * image_gray.width + x]
+                    pixel_value = pixels[y * image.width + x]
                     draw_condition = pixel_value >= threshold if invert_drawing else pixel_value <= threshold
 
                     if draw_condition:
@@ -142,7 +169,9 @@ def visualize(gcode_file_path):
     image.save(output_image_path)
     image.show()
 
-
-A = convert_n_stuff(image_dir)
-B = compress_gcode(A)
-visualize(B)
+A = to_gray(image_dir)
+B = to_bl(A)
+C = B # C = to_db(B)
+D = to_gcode(C)
+E = compress_gcode(D)
+visualize(E)
